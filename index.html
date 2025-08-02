@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>2025参議院選比例得票率(北海道)</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* HTMLとBody要素をビューポートいっぱいに広げる */
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0; /* デフォルトのマージンを削除 */
+            padding: 0; /* デフォルトのパディングを削除 */
+            overflow: hidden;
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f0f2f5;
+        }
+
+        /* コンテナ（サイドバーと地図を横並びにする） */
+        .container {
+            display: flex;
+            height: 100%; /* 親の高さ全体を使用 */
+            width: 100%; /* 親の幅全体を使用 */
+            gap: 15px;
+            padding: 15px; /* 全ての辺に15pxのパディングを適用 */
+            box-sizing: border-box; /* パディングを要素の幅と高さに含める */
+            align-items: stretch;
+        }
+
+        /* サイドバーのスタイル */
+        .sidebar {
+            width: 300px; /* 固定幅 */
+            background-color: #ffffff;
+            padding: 30px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+            position: relative;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* スクロールバーのスタイル（WebKitブラウザ向け） */
+        .sidebar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* ドラッグハンドルのスタイル (非表示にする) */
+        .sidebar-resizer {
+            display: none; /* PCでも非表示 */
+        }
+
+        /* 地図が表示されるdiv要素 */
+        #map {
+            flex-grow: 1;
+            height: 100%;
+            width: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        /* サイドバー内の各セクションのスタイル */
+        .sidebar h1 {
+            font-size: 2em;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 25px;
+            text-align: left;
+            color: #1155cc; /* タイトル色を元の青に戻す */
+            line-height: 1.3;
+        }
+
+        .legend {
+            margin-bottom: 30px;
+        }
+
+        .legend h2, .details h2 {
+            font-size: 1.4em;
+            font-weight: 500;
+            margin-top: 0;
+            margin-bottom: 18px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 10px;
+            color: #34495e;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            color: #4a4a4a;
+            padding: 5px 0;
+            transition: background-color 0.2s ease;
+            border-radius: 4px;
+        }
+
+        .legend-item:hover {
+            background-color: #f8f8f8;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            margin-right: 15px;
+            border: 1px solid #ccc;
+            flex-shrink: 0;
+            border-radius: 6px;
+        }
+
+        /* 透明度凡例用のスタイル */
+        .legend-opacity-rikken { background-color: #fc2727; }
+        .legend-opacity-jimin { background-color: #0205fc; }
+
+        .details {
+            margin-top: 30px;
+            line-height: 1.8;
+        }
+
+        .details p {
+            font-size: 1.05em;
+            margin-bottom: 5px;
+            color: #4a4a4a;
+        }
+
+        /* 地図情報パネルのスタイル */
+        #info-panel {
+            background-color: #fdfdfd;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            max-height: calc(100% - 100px);
+            overflow-y: auto;
+        }
+
+        #info-panel h2 {
+            font-size: 1.3em;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        #info-panel p {
+            font-size: 0.95em;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        /* --- スマートフォン向けのスタイル (画面幅が768px以下の場合) --- */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column; /* 縦並びにする */
+                padding: 0; /* 余白をなくす */
+                gap: 0; /* 隙間をなくす */
+                height: 100%; /* 親の高さに合わせる */
+                width: 100%; /* 親の幅に合わせる */
+            }
+
+            .sidebar {
+                display: none; /* スマホではサイドバーを非表示にする */
+                width: 100%;
+                height: auto; /* 高さは内容に合わせる */
+                padding: 0;
+                border-right: none;
+                border-bottom: none;
+                border-radius: 0;
+                box-shadow: none;
+                position: static;
+                min-height: auto;
+                max-height: auto;
+                overflow-y: hidden; /* サイドバーが非表示なのでスクロールも不要 */
+            }
+
+            /* ここはすでにdisplay: none;なので変更なし */
+            /* .sidebar-resizer {
+                display: none;
+            } */
+
+            #map {
+                flex-grow: 1;
+                height: 100%; /* 地図が画面全体を使う */
+                border-radius: 0; /* 角丸をなくす */
+                box-shadow: none; /* シャドウをなくす */
+            }
+
+            /* スマホで情報パネルを非表示にする */
+            #info-panel {
+                display: none;
+            }
+
+            /* Leafletポップアップのスタイル調整 (任意) */
+            .leaflet-popup-content-wrapper {
+                border-radius: 8px;
+                padding: 15px;
+                font-size: 14px;
+                line-height: 1.6;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            }
+            .leaflet-popup-content h2 {
+                font-size: 1.2em;
+                margin-top: 0;
+                margin-bottom: 10px;
+                color: #2c3e50;
+            }
+            .leaflet-popup-content p {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <h1>2025参議院選比例得票率(北海道)</h1>
+
+            <div class="legend">
+                <h2>得票率1位</h2>
+
+                <div class="legend-item">
+                    <div class="legend-color legend-opacity-jimin"></div>
+                    自由民主党
+                </div>
+
+                <div class="legend-item">
+                    <div class="legend-color legend-opacity-rikken"></div>
+                    立憲民主党
+                </div>
+            </div>
+
+            <div class="details">
+                <h2>詳細情報</h2>
+                <div id="info-panel">地図をクリックするとここに情報が表示されます。</div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+        // Leafletマップの初期化
+        var map = L.map('map', { zoomControl: false }).setView([43.062, 141.355], 7);
+
+        // ベースマップ（背景地図）の追加
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // --- サイドバー開閉（ドラッグ）機能の削除 ---
+        // 関連する定数とイベントリスナー、関数を全て削除します
+        const sidebar = document.getElementById('sidebar');
+        // const resizer = document.querySelector('.sidebar-resizer'); // 削除
+        // let isResizing = false; // 削除
+
+        // const MIN_SIDEBAR_WIDTH = 0; // 削除
+        // const MAX_SIDEBAR_WIDTH = 300; // 削除
+        // const INITIAL_SIDEBAR_WIDTH = 300; // 削除
+
+        // 初期幅設定はCSSで行うため、JSからは削除
+        // sidebar.style.width = INITIAL_SIDEBAR_WIDTH + 'px'; // 削除
+
+        // resizer.addEventListener('mousedown', function(e) { ... }); // 削除
+        // function resizeSidebar(e) { ... } // 削除
+        // function stopResize() { ... } // 削除
+        // 以上、サイドバーのリサイズに関連するJSコードは全て削除しました。
+
+        // --- GeoJSONデータの読み込みと表示 ---
+        var geojsonDataPath = '2025参議院選ver.3北海道.json'; // 必要に応じてGeoJSONファイル名を変更してください
+        var geojsonLayer;
+        const municipalityLayers = new Map();
+
+        const flagRikkenColumn = '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_立憲';
+        const valueRikkenColumn = '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_12';
+        const flagJiminColumn = '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_自民';
+        const valueJiminColumn = '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_28';
+        const municipalityNameColumn = '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_自治体名';
+
+        const partyAttributes = {
+            "日本共産党": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_共産', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_4' },
+            "日本維新の会": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_維新', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_6' },
+            "無所属連合": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_無所属連合', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_8' },
+            "日本保守党": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_保守', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_10' },
+            "立憲民主党": { flag: flagRikkenColumn, value: valueRikkenColumn },
+            "参政党": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_参政', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_14' },
+            "国民民主党": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_国民', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_16' },
+            "チームみらい": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_みらい', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_18' },
+            "日本誠真会": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_誠真', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_20' },
+            "社民党": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_社民', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_22' },
+            "れいわ新選組": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_令和', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_24' },
+            "日本改革党": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_改革', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_26' },
+            "自由民主党": { flag: flagJiminColumn, value: valueJiminColumn },
+            "再生の道": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_再生', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_30' },
+            "公明党": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_公明', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_32' },
+            "NHK党": { flag: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_NHK', value: '簡素化2025参議院選比例GIS - 2025自治体別比例得票率_field_34' }
+        };
+
+        fetch(geojsonDataPath)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('GeoJSONファイルの読み込みに失敗しました: ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("GeoJSONデータが正常に読み込まれました:", data);
+
+                function getOpacity(rate) {
+                    if (rate === null || isNaN(rate)) {
+                        return 0;
+                    }
+                    if (rate >= 50) {
+                        return 1.0;
+                    } else {
+                        return Math.max(0, Math.min(1, rate / 50));
+                    }
+                }
+
+                function getRikkenStyle(rate) {
+                    return {
+                        fillColor: '#fc2727',
+                        fillOpacity: getOpacity(rate),
+                        weight: 1,
+                        opacity: 1,
+                        color: 'white',
+                        dashArray: '3'
+                    };
+                }
+
+                function getJiminStyle(rate) {
+                    return {
+                        fillColor: '#0205fc',
+                        fillOpacity: getOpacity(rate),
+                        weight: 1,
+                        opacity: 1,
+                        color: 'white',
+                        dashArray: '3'
+                    };
+                }
+
+                function style(feature) {
+                    const properties = feature.properties;
+                    if (properties) {
+                        const rikkenFlag = properties[flagRikkenColumn];
+                        const rikkenValue = parseFloat(properties[valueRikkenColumn]);
+                        const jiminFlag = properties[flagJiminColumn];
+                        const jiminValue = parseFloat(properties[valueJiminColumn]);
+
+                        if (rikkenFlag === 1 && !isNaN(rikkenValue)) {
+                            return getRikkenStyle(rikkenValue);
+                        } else if (jiminFlag === 1 && !isNaN(jiminValue)) {
+                            return getJiminStyle(jiminValue);
+                        }
+                    }
+                    return {
+                        fillColor: '#ccc',
+                        fillOpacity: 1.0,
+                        weight: 1,
+                        opacity: 1,
+                        color: 'white',
+                        dashArray: '3'
+                    };
+                }
+
+                const highlightStyle = {
+                    weight: 3,
+                    color: '#666',
+                    dashArray: '',
+                };
+
+                function highlightFeature(e) {
+                    const clickedMunicipalityName = e.target.feature.properties[municipalityNameColumn];
+                    if (municipalityLayers.has(clickedMunicipalityName)) {
+                        municipalityLayers.get(clickedMunicipalityName).forEach(layer => {
+                            layer.setStyle(highlightStyle);
+                            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                                layer.bringToFront();
+                            }
+                        });
+                    }
+                }
+
+                function resetHighlight(e) {
+                    const clickedMunicipalityName = e.target.feature.properties[municipalityNameColumn];
+                    if (municipalityLayers.has(clickedMunicipalityName)) {
+                        municipalityLayers.get(clickedMunicipalityName).forEach(layer => {
+                            geojsonLayer.resetStyle(layer);
+                        });
+                    }
+                }
+
+                // フィーチャがクリックされた時の処理
+                function clickFeature(e) {
+                    var feature = e.target.feature;
+                    var properties = feature.properties;
+                    let infoContent = '';
+
+                    if (properties) {
+                        infoContent += `<h2>${properties[municipalityNameColumn] || '自治体名なし'}</h2>`;
+
+                        let partyData = [];
+                        for (const partyName in partyAttributes) {
+                            const partyValueColumn = partyAttributes[partyName].value;
+                            const partyValue = parseFloat(properties[partyValueColumn]);
+
+                            if (!isNaN(partyValue)) {
+                                partyData.push({
+                                    name: partyName,
+                                    value: partyValue
+                                });
+                            }
+                        }
+
+                        partyData.sort((a, b) => b.value - a.value);
+
+                        if (partyData.length > 0) {
+                            partyData.forEach(party => {
+                                infoContent += `<p><strong>${party.name}:</strong> ${party.value.toFixed(2)}%</p>`;
+                            });
+                        } else {
+                            infoContent += `<p>該当する党のデータなし</p>`;
+                        }
+                    } else {
+                        infoContent = `<p>地物情報がありません。</p>`;
+                    }
+
+                    // 画面幅によって表示方法を切り替え
+                    if (window.innerWidth <= 768) {
+                        // スマートフォンサイズの場合：ポップアップ表示
+                        L.popup()
+                            .setLatLng(e.latlng)
+                            .setContent(infoContent)
+                            .openOn(map);
+                    } else {
+                        // デスクトップサイズの場合：サイドバーに表示
+                        var infoPanel = document.getElementById('info-panel');
+                        infoPanel.innerHTML = infoContent;
+                    }
+                }
+
+                function onEachFeature(feature, layer) {
+                    const municipalityName = feature.properties[municipalityNameColumn];
+                    if (municipalityName) {
+                        if (!municipalityLayers.has(municipalityName)) {
+                            municipalityLayers.set(municipalityName, []);
+                        }
+                        municipalityLayers.get(municipalityName).push(layer);
+                    }
+
+                    layer.on({
+                        mouseover: highlightFeature,
+                        mouseout: resetHighlight,
+                        click: clickFeature
+                    });
+                }
+
+                geojsonLayer = L.geoJSON(data, {
+                    style: style,
+                    onEachFeature: onEachFeature
+                }).addTo(map);
+
+                var bounds = geojsonLayer.getBounds();
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds);
+                }
+            })
+            .catch(error => {
+                console.error('GeoJSONファイルの読み込みまたは処理中にエラーが発生しました:', error);
+            });
+    </script>
+
+</body>
+</html>
